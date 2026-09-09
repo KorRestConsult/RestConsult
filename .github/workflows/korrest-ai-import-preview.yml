@@ -1,0 +1,50 @@
+name: Import KORREST AI preview
+
+on:
+  push:
+    branches:
+      - preview/korrest-ai-static-20260909
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout preview branch
+        uses: actions/checkout@v4
+        with:
+          ref: preview/korrest-ai-static-20260909
+      - name: Download verified 6worlds bundle
+        run: |
+          curl -fL --retry 3 'https://sdmntprcentralus.oaiusercontent.com/files/00000000-4a04-81f5-931c-82bfb52aff7f/raw?se=2026-09-09T11%3A33%3A10Z&sp=r&sv=2026-02-06&sr=b&scid=9660dc0b-6e63-54c4-b29b-aa8baf60191c&skoid=e5e3659d-4463-4dbf-b2ce-ee32bc0a0a8d&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-09-09T06%3A50%3A24Z&ske=2026-09-10T06%3A50%3A24Z&sks=b&skv=2026-02-06&sig=7gYg4bYcy0WzwOqn2MvH8/71ItSLXRKROAQCy4QXxbA%3D' -o /tmp/korrest-demo.zip
+          rm -rf /tmp/korrest-demo
+          mkdir -p /tmp/korrest-demo
+          unzip -q /tmp/korrest-demo.zip -d /tmp/korrest-demo
+      - name: Replace public demo copy
+        run: |
+          rm -rf korrest-ai
+          mkdir -p korrest-ai
+          cp -R /tmp/korrest-demo/. korrest-ai/
+      - name: Verify bundle
+        run: |
+          test -f korrest-ai/index.html
+          test -f korrest-ai/app16.js
+          test -f korrest-ai/sales-intro.js
+          test -f korrest-ai/intro-skip.js
+          test -f korrest-ai/brand.js
+          test -f korrest-ai/about-contact.js
+          grep -q 'KORREST AI — Департамент Сервиса' korrest-ai/index.html
+          grep -q 'Пропустить презентацию' korrest-ai/intro-skip.js
+          grep -q 'Илья Коробицин' korrest-ai/about-contact.js
+          for f in korrest-ai/*.js; do node --check "$f" >/dev/null; done
+      - name: Commit preview bundle
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A korrest-ai
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Publish verified KORREST AI static preview from 6worlds@8c3284a'
+          git push origin HEAD:preview/korrest-ai-static-20260909
